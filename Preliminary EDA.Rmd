@@ -1,0 +1,279 @@
+---
+title: "Preliminary EDA"
+author: "Zachary Price"
+output: html_notebook
+---
+
+## Research Question
+What factors influence free throw percentage amongst NBA players for the 2019-2020 season, and do higher team free throw percentages lead to more points per game for teams?
+
+## Primary Data Source Information
+
+### Scrape Primary Data
+We begin by scraping the primary data from the source and saving the desired table to a data table named NBAPrimary.
+```{r}
+library(rvest)
+library(DataComputing)
+library(tidyverse)
+
+page <- "https://www.basketball-reference.com/leagues/NBA_2020_per_game.html"
+primaryList <- page %>%
+  read_html() %>%
+  html_nodes(css = "table") %>%
+  html_table(fill = TRUE)
+NBAPrimary <-
+  primaryList[[1]]
+```
+
+### Clean Primary Data
+We then clean the data by removing its repeating header rows, renaming variables to follow conventions, and transforming variables to the appropriate data type.
+```{r}
+# Get rid of repeat header rows
+NBAPrimary <-
+  NBAPrimary %>%
+  filter(Rk != "Rk")
+
+# Rename variables
+NBAPrimary <-
+  NBAPrimary %>%
+  rename(rk = Rk, player = Player, pos = Pos, age = Age, team = Tm, games = G, gStarted = GS,
+         minutes = MP, fg = FG, fga = FGA, fgPct = `FG%`, threePts = `3P`, threeAttempts = `3PA`,
+         threePct = `3P%`, twoPts = `2P`, twoAttempts = `2PA`, twoPct = `2P%`, efgPct = `eFG%`,
+         ft = FT, ftA = FTA, ftPct = `FT%`, orb = ORB, drb = DRB, trb = TRB, ast = AST, stl = STL,
+         blk = BLK, tov = TOV, fouls = PF, pts = PTS)
+
+# Change variables to correct data types
+NBAPrimary <-
+  NBAPrimary %>%
+  mutate(age = as.numeric(age), games = as.numeric(games), gStarted = as.numeric(gStarted), 
+         minutes = as.numeric(minutes), fg = as.numeric(fg), fga = as.numeric(fga), 
+         fgPct = as.numeric(fgPct), threePts = as.numeric(threePts), 
+         threeAttempts = as.numeric(threeAttempts), threePct = as.numeric(threePct), 
+         twoPts = as.numeric(twoPts), twoAttempts = as.numeric(twoAttempts), twoPct = as.numeric(twoPct),
+         efgPct = as.numeric(efgPct), ft = as.numeric(ft), ftA = as.numeric(ftA), 
+         ftPct = as.numeric(ftPct), orb = as.numeric(orb), drb = as.numeric(drb), trb = as.numeric(trb),
+         ast = as.numeric(ast), stl = as.numeric(stl), blk = as.numeric(blk), tov = as.numeric(tov),
+         fouls = as.numeric(fouls), pts = as.numeric(pts))
+```
+
+### Where did you find them?
+I found this data on a website called Basketball Reference. This site is dedicated to tracking stats for NBA players and teams each year.
+
+### Who collected/maintains them?
+The data is collected and maintained by the parent company Sports Reference. It is not specified who exactly is responsible for this basketball data, but a whole group of people can be examined on the company's About page.
+
+### When & why were they originally collected?
+The company states "Our Primary Aim is to answer our users' questions with the easiest-to-use, fastest, and most complete sports statistics anywhere." Thus, the why is so they can provide the public with easy access to NBA data. As for when, Sports Reference collected this data throughout the 2019-2020 NBA season, completing it once the season ended in August.
+
+### What does a case represent in each data source, and how many total cases are available?
+```{r}
+head(NBAPrimary, 3)
+dim(NBAPrimary)
+```
+A case represents a player on a specific team in the 2019-20 NBA season. There are 651 total cases in this data set.
+
+### What are some of the variables that you plan to use?
+```{r}
+str(NBAPrimary)
+```
+From this data set, I plan on using the variables player, position (pos), team, three point percentage (threePct), free throws (ft), free throw attempts (ftA), and free throw percentage (ftPct).
+
+## Other Data Source Information
+
+### Scrape Other Data
+We will follow the same process as with the primary data source by scraping the other data from the source and saving the desired table to a data table named NBAOther.
+```{r}
+page <- "https://basketball.realgm.com/nba/players"
+otherList <- page %>%
+  read_html() %>%
+  html_nodes(css = "table") %>%
+  html_table(fill = TRUE)
+NBAOther <-
+  otherList[[1]]
+```
+
+### Clean Other Data
+We then clean the data by renaming variables to follow conventions and transforming variables to the appropriate data type. We also have to split the original height variable to convert it into inches.
+```{r}
+# Rename variables
+NBAOther <-
+  NBAOther %>%
+  rename(number = `#`, player = Player, pos = Pos, height = HT, weight = WT, age = Age, 
+         team = `Current Team`, season = YOS, college = `Pre-Draft Team`, draft = `Draft Status`, 
+         nationality = Nationality)
+
+# Change variables to correct data types
+NBAOther <-
+  NBAOther %>%
+  mutate(number = as.numeric(number), weight = as.numeric(weight), age = as.numeric(age), 
+         season = as.numeric(season))
+
+# Convert height to inches
+NBAOther <-
+  NBAOther %>% 
+  separate(height, c('feet', 'inches'), "-", convert = TRUE) %>% 
+  mutate(height = (12*feet + inches))
+```
+
+### Where did you find them?
+I found this data on a website called Real GM. Real GM is a licensing business that delivers proprietary software to NBA teams as an application service provider.
+
+### Who collected/maintains them?
+The company Real GM collected and maintains this data. It is not specified who exactly is responsible for this basketball data, but a whole group of people can be examined on the company's About page.
+
+### When & why were they originally collected?
+This data was collected at the beginning of the 2019-20 NBA season. This data was collected to fulfill the company's mission to provide users all the data and tools required to simulate the experience of a real general manager.
+
+### What does a case represent in each data source, and how many total cases are available?
+```{r}
+head(NBAOther, 3)
+dim(NBAOther)
+```
+A case represents a player in the 2019-20 NBA season. There are 496 total cases in this data set.
+
+### What are some of the variables that you plan to use?
+```{r}
+str(NBAOther)
+```
+From this data set, I plan on using the variables player, height, weight, and nationality.
+
+## Data Exploration
+
+### Join Data
+We must first join NBAPrimary and NBAOther so we can analyze how variables from the NBAOther data set influence free throw percentage. Note that I filtered for free throw attempts greater than one so that player's with a very small number of free throw attempts per game don't inaccurately affect the data with their small sample sizes.
+```{r}
+# Join data
+NBAComplete <-
+  NBAPrimary %>%
+  inner_join(NBAOther, by = "player")
+
+# Rename overlapping variables
+NBAComplete <-
+  NBAComplete %>%
+  rename(pos = pos.x, age = age.x, team = team.x)
+
+# Remove players with small sample size of free throws
+NBAComplete <-
+  NBAComplete %>%
+  filter(ftA > 1 & team != "TOT")
+```
+
+### Height vs Free Throw Percentage
+Let's take a look at a scatterplot of height vs free throw percentage.
+```{r}
+ggplot(data = NBAComplete, aes(x = height,y = ftPct)) +
+  geom_point() + 
+  stat_smooth(method = lm) +
+  xlab("Height(in)") +
+  ylab("Free Throw Percentage")
+```
+There appears to be a decently strong negative correlation between height and free throw percentage.
+
+### Weight vs Free Throw Percentage
+Let's take a look at a scatterplot of weight vs free throw percentage.
+```{r}
+ggplot(data = NBAComplete, aes(x = weight, y = ftPct)) +
+  geom_point() + 
+  stat_smooth(method=lm) +
+  xlab("Weight(lbs)") +
+  ylab("Free Throw Percentage")
+```
+There appears to be a decently strong negative correlation between weight and free throw percentage.
+
+### Three Point Percentage vs Free Throw Percentage
+Let's take a look at a scatterplot of three point percentage vs free throw percentage. Note that I filtered for three attempts greater than 1.5 to make sure players that take very few threes per game don't inaccuartely affect the plot with their small sample sizes.
+```{r}
+NBAComplete %>%
+  filter(threeAttempts > 1.5) %>%
+  ggplot(aes(x = threePct, y = ftPct)) +
+  geom_point() + 
+  stat_smooth(method=lm) +
+  xlab("Three Point Percentage") +
+  ylab("Free Throw Percentage")
+```
+There appears to be a decently strong positive relationship between three point percentage and free throw percentage.
+
+### Free Throw Attempts vs Free Throw Percentage
+Let's take a look at a scatterplot of free throw attempts vs free throw percentage. In the first scatterplot, I included all of the data. However, since most of the data lies below the six free throw attempts per game mark, I decided to make a separate scatterplot with just that data to get a better idea of the relationship between the two variables.
+```{r}
+NBAComplete %>%
+  ggplot(aes(x = ftA, y = ftPct)) +
+  geom_point() + 
+  stat_smooth(method=lm) +
+  xlab("Free Throw Attempts") +
+  ylab("Free Throw Percentage")
+
+NBAComplete %>%
+  filter(ftA < 6) %>%
+  ggplot(aes(x = ftA, y = ftPct)) +
+  geom_point() + 
+  stat_smooth(method=lm) +
+  xlab("Free Throw Attempts") +
+  ylab("Free Throw Percentage")
+```
+The first scatterplot appears to be heavily affected by a few influential points; thus, I will not comment on the relationship between the two variables based on this graph. However, the second scatterplot appears to show no correlation between free throw attempts and free throw percentage.
+
+### Position vs Free Throw Percentage
+Let's take a look at a barchart of position vs free throw percentage.
+```{r}
+NBAPos <-
+  NBAComplete %>%
+  group_by(pos) %>%
+  summarise(ft = sum(ft), ftA = sum(ftA)) %>%
+  filter(pos == "C" | pos == "PF" | pos == "PG" | pos == "SF" | pos == "SG") %>%
+  mutate(ftPct = ft/ftA)
+
+ggplot(data = NBAPos, aes(x = reorder(pos, ftPct), y = ftPct)) +
+  geom_bar(stat = 'identity', position = 'stack', width = .9) +
+  xlab("Position") +
+  ylab("Free Throw Percentage")
+```
+It appears that centers average by far the lowest free throw percentage, while shooting guards and point guards average the highest free throw percentages. This is not too surprising based on the roles of the positions. An ANOVA test would need to be conducted to determine if there truly is a difference in mean free throw percentages between the various positions.
+
+### Nationality vs Free Throw Percentage
+Let's take a look at a barchart of nationality vs free throw percentage.
+```{r}
+NBANation <-
+  NBAComplete %>%
+  group_by(nationality) %>%
+  summarise(ft = sum(ft), ftA = sum(ftA)) %>%
+  filter(ftA > 5) %>%
+  mutate(ftPct = ft/ftA)
+
+ggplot(data = NBANation, aes(x = nationality, y = ftPct)) +
+  geom_bar(stat = 'identity', position = 'stack', width = .9) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab("Nationality") +
+  ylab("Free Throw Percentage")
+```
+There doesn't appear to be much of a pattern in this data. United States has a much larger sample size than any of the other nationalities. I was interested to see if nations other than the United States varied significantly in one direction compared to the United States; however, that does not appear to be the case.
+
+### Team Free Throw Percentage vs Points per Game
+Let's take a look at a scatterplot of team free throw percentage vs points per game to get an idea if higher team free throw percentages lead to more points per game for teams. At first, I attempted to create this plot by grouping by team and summarizing statistics for each team; however, this didn't work as players were on multiple teams throughout the year, and each team did not play the same number of games due to Covid-19. Therefore, I had to us Real GM's team statistics for the 2019-20 season to create an accurate scatterplot. 
+```{r}
+page <- "https://basketball.realgm.com/nba/team-stats"
+teamList <- page %>%
+  read_html() %>%
+  html_nodes(css = "table") %>%
+  html_table(fill = TRUE)
+
+NBATeam <-
+  teamList[[1]]
+
+NBATeam <-
+  NBATeam %>%
+  select(Team, `FT%`, PPG)
+
+NBATeam <-
+  NBATeam %>%
+  rename(team = Team, ftPct = `FT%`, pts = PPG)
+
+ggplot(data = NBATeam, aes(x = ftPct, y = pts)) +
+  geom_point() + 
+  stat_smooth(method = lm) +
+  xlab("Free Throw Percentage") +
+  ylab("Points per Game")
+```
+The two influential points at the start and end of the x-axis make it appear as if there is a positive correlation between free throw percentage and points per game. However, when these points are not considered, there does not appear to be a relationship between free throw percentage and points per game.
+
+
